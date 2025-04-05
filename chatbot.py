@@ -1,71 +1,71 @@
 import streamlit as st
-import speech_recognition as sr
-import pyttsx3
 import openrouteservice
 from streamlit_folium import st_folium
 import folium
+from gtts import gTTS
+import os
+import uuid
 
-# Speak response
-def speak_text(text):
-    engine = pyttsx3.init()
-    engine.say(text)
-    engine.runAndWait()
+# Title
+st.set_page_config(page_title="Map Chatbot", layout="centered")
+st.title("🗺️ Map Chatbot with Directions")
 
-# Get voice input
-def get_voice_input(prompt):
-    st.info(prompt)
-    r = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.write("Listening...")
-        audio = r.listen(source)
-    try:
-        text = r.recognize_google(audio)
-        st.success(f"You said: {text}")
-        return text
-    except Exception as e:
-        st.error("Sorry, could not understand.")
-        return ""
+# Input fields
+source = st.text_input("Enter Source Location", "Bhavani Bus Stand")
+destination = st.text_input("Enter Destination Location", "Kaveri Bridge")
 
-# Map logic
+# Initialize client
 client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
 
-def get_route(start, end):
-    coords = client.pelias_autocomplete(start)["features"][0]["geometry"]["coordinates"]
-    start_coords = coords[::-1]
-    coords = client.pelias_autocomplete(end)["features"][0]["geometry"]["coordinates"]
-    end_coords = coords[::-1]
+# Function to get route and instructions
+def get_directions(src, dest):
+    geocode_src = client.pelias_search(text=src)
+    geocode_dest = client.pelias_search(text=dest)
 
-    route = client.directions(
-        coordinates=[start_coords[::-1], end_coords[::-1]],
-        profile='driving-car',
-        format='geojson'
-    )
+    coord_src = geocode_src['features'][0]['geometry']['coordinates']
+    coord_dest = geocode_dest['features'][0]['geometry']['coordinates']
 
-    m = folium.Map(location=start_coords, zoom_start=13)
-    folium.Marker(start_coords, tooltip="Start").add_to(m)
-    folium.Marker(end_coords, tooltip="End").add_to(m)
-    folium.GeoJson(route, name="route").add_to(m)
-    
-    # Speak the first instruction
-    steps = route['features'][0]['properties']['segments'][0]['steps']
-    if steps:
-        speak_text(steps[0]['instruction'])
-    
-    st_folium(m, width=700, height=500)
+    coords = (coord_src, coord_dest)
 
-# Streamlit App UI
-st.title("🗺️ Voice Map Chatbot")
+    route = client.directions(coords)
+    steps = route['routes'][0]['segments'][0]['steps']
 
-if st.button("🎙️ Speak Starting Point"):
-    start_location = get_voice_input("Say the starting location")
-else:
-    start_location = st.text_input("Enter Starting Location")
+    # Extract polyline
+    geometry = route['routes'][0]['geometry']
+    decoded = openrouteservice.convert.decode_polyline(geometry)
 
-if st.button("🎙️ Speak Destination"):
-    end_location = get_voice_input("Say the destination")
-else:
-    end_location = st.text_input("Enter Destination")
+    return decoded['coordinates'], steps
 
+# Function to speak directions
+def speak_directions(steps):
+    instructions = " ".join([step['instruction'] for step in steps])
+    tts = gTTS(text=instructions, lang='en')
+    filename = f"route_audio_{uuid.uuid4()}.mp3"
+    tts.save(filename)
+    st.audio(filename, format="audio/mp3")
+
+# Button to get route
 if st.button("Get Route"):
-    if start_location and end_location:
-        get_route(start_location, end_location)
+    try:
+        coords, steps = get_directions(source, destination)
+
+        # Display instructions
+        st.subheader("Directions 🧭")
+        for i, step in enumerate(steps):
+            st.markdown(f"**{i+1}.** {step['instruction']}")
+
+        # Display map
+        m = folium.Map(location=coords[0][::-1], zoom_start=14)
+        folium.PolyLine(coords, color="blue", weight=5).add_to(m)
+        folium.Marker(coords[0][::-1], tooltip="Start").add_to(m)
+        folium.Marker(coords[-1][::-1], tooltip="End").add_to(m)
+
+        st_folium(m, width=700)
+
+        # Play directions
+        st.subheader("🔊 Voice Directions")
+        speak_directions(steps)
+
+    except Exception as e:
+        st.error(f"Something went wrong: {e}")
+
