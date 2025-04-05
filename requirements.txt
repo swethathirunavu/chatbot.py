@@ -1,3 +1,6 @@
 streamlit
 openrouteservice
 streamlit-folium
+SpeechRecognition
+pyttsx3
+pyaudio
