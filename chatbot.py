@@ -3,7 +3,6 @@ import openrouteservice
 from geopy.geocoders import Nominatim
 from streamlit_folium import st_folium
 import folium
-import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
 st.title("🗺️ Get Your Path")
@@ -17,33 +16,8 @@ Enter starting and destination places by name. This app will:
 
 if "route_info" not in st.session_state:
     st.session_state.route_info = None
-if "user_location" not in st.session_state:
-    st.session_state.user_location = None
 
-def get_live_location():
-    components.html("""
-        <script>
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const coords = {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude
-                };
-                window.parent.postMessage(coords, "*");
-            },
-            (err) => {
-                window.parent.postMessage({error: "Location access denied."}, "*");
-            }
-        );
-        </script>
-        <div id=\"loc\">Fetching location...</div>
-    """, height=0)
-
-use_live_location = st.checkbox("📍 Use my current location as Start Point")
-
-start_place = ""
-if not use_live_location:
-    start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
+start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
 
 def geocode_place(place_name):
@@ -51,18 +25,8 @@ def geocode_place(place_name):
     location = geolocator.geocode(place_name)
     return (location.latitude, location.longitude) if location else None
 
-if use_live_location:
-    st.info("🔍 Trying to detect your current location... Allow permission in browser.")
-    get_live_location()
-    st.warning("⚠️ This preview won't return location to backend directly. You may need to enter start point manually for now.")
-
 if st.button("Find Route"):
-    start_coords = None
-    if use_live_location and st.session_state.user_location:
-        start_coords = st.session_state.user_location
-    elif not use_live_location:
-        start_coords = geocode_place(start_place)
-
+    start_coords = geocode_place(start_place)
     end_coords = geocode_place(end_place)
 
     if not start_coords or not end_coords:
