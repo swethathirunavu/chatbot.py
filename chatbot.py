@@ -3,9 +3,10 @@ import openrouteservice
 from geopy.geocoders import Nominatim
 from streamlit_folium import st_folium
 import folium
+from streamlit_javascript import st_javascript
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
-st.title("🗺️ Get Your Path")
+st.title("🗘️ Get Your Path")
 
 st.markdown("""
 Enter starting and destination places by name. This app will:
@@ -17,13 +18,40 @@ Enter starting and destination places by name. This app will:
 if "route_info" not in st.session_state:
     st.session_state.route_info = None
 
-start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
-end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
+# Get user location if requested
+def get_user_location():
+    loc = st_javascript("navigator.geolocation.getCurrentPosition((loc) => {window.parent.postMessage({latitude: loc.coords.latitude, longitude: loc.coords.longitude}, '*');})")
+    return loc
 
+# Reverse geocode coordinates to address
+def reverse_geocode(coords):
+    geolocator = Nominatim(user_agent="get-your-path-app")
+    location = geolocator.reverse(coords, exactly_one=True)
+    return location.address if location else "Unknown location"
+
+# Geocode place name to coordinates
 def geocode_place(place_name):
     geolocator = Nominatim(user_agent="get-your-path-app")
     location = geolocator.geocode(place_name)
     return (location.latitude, location.longitude) if location else None
+
+use_current = st.checkbox("Use my current location as starting point")
+
+if use_current:
+    st.info("Detecting your location...")
+    user_loc = get_user_location()
+    if user_loc and "latitude" in user_loc:
+        start_coords = (user_loc["latitude"], user_loc["longitude"])
+        reverse_start = reverse_geocode(start_coords)
+        st.success(f"Detected: {reverse_start}")
+        start_place = reverse_start
+    else:
+        st.warning("Could not detect location.")
+        start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
+else:
+    start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
+
+end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
 
 if st.button("Find Route"):
     start_coords = geocode_place(start_place)
@@ -74,6 +102,7 @@ if st.session_state.route_info:
     ).add_to(m)
 
     st_folium(m, width=700, height=500)
+
 
 
 
