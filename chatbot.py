@@ -47,10 +47,11 @@ if st.button("Find Route"):
                 profile = 'driving-car'
             elif route_preference == "Shortest":
                 profile = 'driving-car'
+                # Here you could tweak the API call further for shortest, like optimizing waypoints or route parameters
             else:
-                profile = 'driving-car'  # Default to driving-car
+                profile = 'driving-car'  # You can adjust this to any profile you prefer
 
-            # Fetch the main route
+            # Fetch the route
             route = client.directions(
                 coordinates=[start_coords[::-1], end_coords[::-1]],
                 profile=profile,
@@ -62,14 +63,6 @@ if st.button("Find Route"):
                 "start_coords": start_coords,
                 "end_coords": end_coords
             }
-
-            # Fetch alternative routes with increased number of alternatives (5 in this case)
-            alt_route = client.directions(
-                coordinates=[start_coords[::-1], end_coords[::-1]],
-                profile=profile,
-                alternatives=5,  # Get 5 alternatives
-                format='geojson'
-            )
 
         except Exception as e:
             st.error(f"Something went wrong: {e}")
@@ -90,34 +83,38 @@ if st.session_state.route_info:
     for i, step in enumerate(steps):
         st.markdown(f"{i+1}. {step['instruction']}")
 
-    # Display the main route on the map
-    if start_coords and end_coords:
-        m = folium.Map(location=start_coords, zoom_start=13)
+    # Displaying route alternatives on map
+    m = folium.Map(location=start_coords, zoom_start=13)
+    folium.Marker(start_coords, tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
+    folium.Marker(end_coords, tooltip="End", icon=folium.Icon(color='red')).add_to(m)
+    
+    # Add the route line
+    folium.PolyLine(
+        locations=[(c[1], c[0]) for c in route['features'][0]['geometry']['coordinates']],
+        color='blue'
+    ).add_to(m)
 
-        # Add markers for start and end points
-        folium.Marker(start_coords, tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
-        folium.Marker(end_coords, tooltip="End", icon=folium.Icon(color='red')).add_to(m)
-
-        # Add the main route line
-        folium.PolyLine(
-            locations=[(c[1], c[0]) for c in route['features'][0]['geometry']['coordinates']],
-            color='blue'
-        ).add_to(m)
-
-        # Add alternative routes (5 alternatives, displayed in orange)
+    # Add additional route alternatives (you can fetch more routes and display them similarly)
+    # For example, you can add a second route here for demonstration
+    if route_preference != "Shortest":
+        alt_route = client.directions(
+            coordinates=[start_coords[::-1], end_coords[::-1]],
+            profile='driving-car',
+            alternatives=True,  # Get alternatives
+            format='geojson'
+        )
+        
+        # Add alternative routes
         for alt in alt_route['features']:
             folium.PolyLine(
-                locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],  # Fix the bracket issue here
+                locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],
                 color='orange',
                 weight=3,
                 opacity=0.7
             ).add_to(m)
 
-        # Show map in Streamlit app
-        st_folium(m, width=700, height=500)
+    st_folium(m, width=700, height=500)
 
-    else:
-        st.error("❌ Could not load valid coordinates. Please check your input.")
 
 
 
