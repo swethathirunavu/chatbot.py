@@ -21,7 +21,7 @@ if "route_info" not in st.session_state:
 start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
 
-# JavaScript for getting the user's location
+# JavaScript code to get the user's location
 geolocation_script = """
 <script>
     if (navigator.geolocation) {
@@ -38,26 +38,21 @@ geolocation_script = """
 """
 
 # Display the JavaScript
-components.html(geolocation_script)
+components.html(geolocation_script, height=0)
 
 def geocode_place(place_name):
     geolocator = Nominatim(user_agent="get-your-path-app")
     location = geolocator.geocode(place_name)
     return (location.latitude, location.longitude) if location else None
 
-# Placeholder for user coordinates
-coords_placeholder = st.empty()
-
-# Function to get user location from JavaScript
+# Check if user location is received from JavaScript
 def get_user_location():
-    message = st.experimental_get_query_params()
-    coords = message.get("coords", None)
-    if coords:
-        return coords[0]['lat'], coords[0]['lon']
+    if "coords" in st.session_state:
+        return st.session_state["coords"]
     return None, None
 
 if st.button("Find Route"):
-    # First check if user is using their location, else fallback to the text input
+    # Check if user location is available
     user_lat, user_lon = get_user_location()
     
     if user_lat and user_lon:
@@ -113,4 +108,5 @@ if st.session_state.route_info:
     ).add_to(m)
 
     st_folium(m, width=700, height=500)
+
 
