@@ -3,10 +3,10 @@ import openrouteservice
 from geopy.geocoders import Nominatim
 from streamlit_folium import st_folium
 import folium
-from streamlit_javascript import st_javascript
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
-st.title("🗘️ Get Your Path")
+st.title("🗺️ Get Your Path")
 
 st.markdown("""
 Enter starting and destination places by name. This app will:
@@ -17,44 +17,52 @@ Enter starting and destination places by name. This app will:
 
 if "route_info" not in st.session_state:
     st.session_state.route_info = None
+if "user_location" not in st.session_state:
+    st.session_state.user_location = None
 
-# Get user location if requested
-def get_user_location():
-    loc = st_javascript("navigator.geolocation.getCurrentPosition((loc) => {window.parent.postMessage({latitude: loc.coords.latitude, longitude: loc.coords.longitude}, '*');})")
-    return loc
+def get_live_location():
+    components.html("""
+        <script>
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const coords = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude
+                };
+                window.parent.postMessage(coords, "*");
+            },
+            (err) => {
+                window.parent.postMessage({error: "Location access denied."}, "*");
+            }
+        );
+        </script>
+        <div id=\"loc\">Fetching location...</div>
+    """, height=0)
 
-# Reverse geocode coordinates to address
-def reverse_geocode(coords):
-    geolocator = Nominatim(user_agent="get-your-path-app")
-    location = geolocator.reverse(coords, exactly_one=True)
-    return location.address if location else "Unknown location"
+use_live_location = st.checkbox("📍 Use my current location as Start Point")
 
-# Geocode place name to coordinates
+start_place = ""
+if not use_live_location:
+    start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
+end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
+
 def geocode_place(place_name):
     geolocator = Nominatim(user_agent="get-your-path-app")
     location = geolocator.geocode(place_name)
     return (location.latitude, location.longitude) if location else None
 
-use_current = st.checkbox("Use my current location as starting point")
-
-if use_current:
-    st.info("Detecting your location...")
-    user_loc = get_user_location()
-    if user_loc and "latitude" in user_loc:
-        start_coords = (user_loc["latitude"], user_loc["longitude"])
-        reverse_start = reverse_geocode(start_coords)
-        st.success(f"Detected: {reverse_start}")
-        start_place = reverse_start
-    else:
-        st.warning("Could not detect location.")
-        start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
-else:
-    start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
-
-end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
+if use_live_location:
+    st.info("🔍 Trying to detect your current location... Allow permission in browser.")
+    get_live_location()
+    st.warning("⚠️ This preview won't return location to backend directly. You may need to enter start point manually for now.")
 
 if st.button("Find Route"):
-    start_coords = geocode_place(start_place)
+    start_coords = None
+    if use_live_location and st.session_state.user_location:
+        start_coords = st.session_state.user_location
+    elif not use_live_location:
+        start_coords = geocode_place(start_place)
+
     end_coords = geocode_place(end_place)
 
     if not start_coords or not end_coords:
@@ -102,9 +110,3 @@ if st.session_state.route_info:
     ).add_to(m)
 
     st_folium(m, width=700, height=500)
-
-
-
-
-
-
