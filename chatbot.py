@@ -1,46 +1,65 @@
 import streamlit as st
 import openrouteservice
-from openrouteservice import convert
 from streamlit_folium import st_folium
 import folium
+from geopy.geocoders import Nominatim
 
-# Title
-st.title("🗺️ Smart Map Chatbot")
-st.write("Enter your source and destination to get the route.")
+st.set_page_config(page_title="Map Chatbot", layout="wide")
+st.title("🗺️ Map Chatbot with Route Directions")
 
-# Input
-source = st.text_input("From")
-destination = st.text_input("To")
+# Get OpenRouteService API key from Streamlit Secrets
+ORS_API_KEY = st.secrets["ORS_API_KEY"]
+client = openrouteservice.Client(key=ORS_API_KEY)
 
-if source and destination:
-    try:
-        # ORS client
-        client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
+# Initialize geolocator
+geolocator = Nominatim(user_agent="map_chatbot")
 
-        # Geocode to get coordinates
-        src_coords = client.pelias_search(text=source)["features"][0]["geometry"]["coordinates"]
-        dest_coords = client.pelias_search(text=destination)["features"][0]["geometry"]["coordinates"]
-        coords = (tuple(src_coords), tuple(dest_coords))
+def geocode_location(place_name):
+    location = geolocator.geocode(place_name)
+    if location:
+        return (location.longitude, location.latitude)
+    else:
+        return None
 
-        # Get route
-        route = client.directions(coords, instructions=True)
-        geometry = route['routes'][0]['geometry']
-        decoded = convert.decode_polyline(geometry)
+# Input from user
+start_location = st.text_input("Enter Start Location", "Bhavani Bus Stand")
+end_location = st.text_input("Enter Destination", "Kaveri Bridge")
 
-        # Draw Map
-        m = folium.Map(location=[src_coords[1], src_coords[0]], zoom_start=12)
-        folium.Marker([src_coords[1], src_coords[0]], popup="Source", icon=folium.Icon(color="green")).add_to(m)
-        folium.Marker([dest_coords[1], dest_coords[0]], popup="Destination", icon=folium.Icon(color="red")).add_to(m)
-        folium.PolyLine([(point[1], point[0]) for point in decoded['coordinates']],
-                        color="blue", weight=4).add_to(m)
+if st.button("Get Route"):
+    start_coords = geocode_location(start_location)
+    end_coords = geocode_location(end_location)
 
-        st_folium(m, width=700, height=500)
+    if not start_coords or not end_coords:
+        st.error("Could not geocode one or both locations.")
+    else:
+        try:
+            route = client.directions(
+                coordinates=[start_coords, end_coords],
+                profile='driving-car',
+                format='geojson'
+            )
 
-        # Show step-by-step directions
-        st.subheader("🧭 Directions:")
-        steps = route['routes'][0]['segments'][0]['steps']
-        for i, step in enumerate(steps):
-            st.markdown(f"**{i+1}.** {step['instruction']}")
+            # Create the map
+            m = folium.Map(location=[start_coords[1], start_coords[0]], zoom_start=13)
+            folium.GeoJson(route, name="route").add_to(m)
+            folium.Marker(
+                location=[start_coords[1], start_coords[0]],
+                popup="Start: " + start_location,
+                icon=folium.Icon(color='green')
+            ).add_to(m)
+            folium.Marker(
+                location=[end_coords[1], end_coords[0]],
+                popup="End: " + end_location,
+                icon=folium.Icon(color='red')
+            ).add_to(m)
 
-    except Exception as e:
-        st.error(f"Error: {e}")
+            st_folium(m, width=700, height=500)
+
+            # Display instructions
+            instructions = route['features'][0]['properties']['segments'][0]['steps']
+            st.subheader("📝 Route Instructions:")
+            for step in instructions:
+                st.markdown(f"- {step['instruction']}")
+
+        except Exception as e:
+            st.error(f"Something went wrong: {e}")
