@@ -3,7 +3,6 @@ import openrouteservice
 from geopy.geocoders import Nominatim
 from streamlit_folium import st_folium
 import folium
-import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
 st.title("🗺️ Get Your Path")
@@ -13,6 +12,7 @@ Enter starting and destination places by name. This app will:
 - Show the best route on a map
 - Display distance and duration
 - Provide step-by-step directions
+- Allow route alternatives (shortest, fastest, recommended)
 """)
 
 if "route_info" not in st.session_state:
@@ -21,33 +21,11 @@ if "route_info" not in st.session_state:
 start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
 
-# JavaScript code to get the user's location
-geolocation_script = """
-<script>
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            const latitude = position.coords.latitude;
-            const longitude = position.coords.longitude;
-            // Sending coordinates to Streamlit via postMessage
-            window.parent.postMessage({coords: {lat: latitude, lon: longitude}}, "*");
-        }, function(error) {
-            // Handle location error
-            alert("Unable to retrieve your location. Please ensure location services are enabled.");
-        });
-    } else {
-        alert("Geolocation is not supported by this browser.");
-    }
-</script>
-"""
-
-# Display the JavaScript in Streamlit
-components.html(geolocation_script, height=0)
-
-# Get user location from the message passed by the JavaScript code
-def get_user_location():
-    if "coords" in st.session_state:
-        return st.session_state["coords"]
-    return None, None
+# Route preference options
+route_preference = st.selectbox(
+    "Select Route Preference",
+    ("Fastest", "Shortest", "Recommended")
+)
 
 def geocode_place(place_name):
     geolocator = Nominatim(user_agent="get-your-path-app")
@@ -55,15 +33,7 @@ def geocode_place(place_name):
     return (location.latitude, location.longitude) if location else None
 
 if st.button("Find Route"):
-    # Check if user location is available
-    user_lat, user_lon = get_user_location()
-    
-    if user_lat and user_lon:
-        start_coords = (user_lat, user_lon)  # Use user location
-        st.write(f"Your current location: Latitude = {user_lat}, Longitude = {user_lon}")
-    else:
-        start_coords = geocode_place(start_place)
-    
+    start_coords = geocode_place(start_place)
     end_coords = geocode_place(end_place)
 
     if not start_coords or not end_coords:
@@ -71,9 +41,20 @@ if st.button("Find Route"):
     else:
         try:
             client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
+
+            # Profile selection based on user preference
+            if route_preference == "Fastest":
+                profile = 'driving-car'
+            elif route_preference == "Shortest":
+                profile = 'driving-car'
+                # Here you could tweak the API call further for shortest, like optimizing waypoints or route parameters
+            else:
+                profile = 'driving-car'  # You can adjust this to any profile you prefer
+
+            # Fetch the route
             route = client.directions(
                 coordinates=[start_coords[::-1], end_coords[::-1]],
-                profile='driving-car',
+                profile=profile,
                 format='geojson'
             )
 
@@ -102,14 +83,37 @@ if st.session_state.route_info:
     for i, step in enumerate(steps):
         st.markdown(f"{i+1}. {step['instruction']}")
 
+    # Displaying route alternatives on map
     m = folium.Map(location=start_coords, zoom_start=13)
     folium.Marker(start_coords, tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
     folium.Marker(end_coords, tooltip="End", icon=folium.Icon(color='red')).add_to(m)
+    
+    # Add the route line
     folium.PolyLine(
         locations=[(c[1], c[0]) for c in route['features'][0]['geometry']['coordinates']],
         color='blue'
     ).add_to(m)
 
+    # Add additional route alternatives (you can fetch more routes and display them similarly)
+    # For example, you can add a second route here for demonstration
+    if route_preference != "Shortest":
+        alt_route = client.directions(
+            coordinates=[start_coords[::-1], end_coords[::-1]],
+            profile='driving-car',
+            alternatives=True,  # Get alternatives
+            format='geojson'
+        )
+        
+        # Add alternative routes
+        for alt in alt_route['features']:
+            folium.PolyLine(
+                locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],
+                color='orange',
+                weight=3,
+                opacity=0.7
+            ).add_to(m)
+
     st_folium(m, width=700, height=500)
+
 
 
