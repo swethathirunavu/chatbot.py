@@ -1,65 +1,67 @@
 import streamlit as st
 import openrouteservice
+from openrouteservice import convert
 from streamlit_folium import st_folium
 import folium
-from geopy.geocoders import Nominatim
 
-st.set_page_config(page_title="Map Chatbot", layout="wide")
-st.title("🗺️ Map Chatbot with Route Directions")
+st.set_page_config(page_title="Smart Route Finder", layout="centered")
+st.title("🗺️ Smart Route Finder with Suggestions")
 
-# Get OpenRouteService API key from Streamlit Secrets
-ORS_API_KEY = st.secrets["ORS_API_KEY"]
-client = openrouteservice.Client(key=ORS_API_KEY)
+# Initialize ORS client
+client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
 
-# Initialize geolocator
-geolocator = Nominatim(user_agent="map_chatbot")
+# Location input from user
+col1, col2 = st.columns(2)
+with col1:
+    start = st.text_input("Enter Starting Location", placeholder="Eg: Bhavani")
+with col2:
+    end = st.text_input("Enter Destination", placeholder="Eg: Chennai")
 
-def geocode_location(place_name):
-    location = geolocator.geocode(place_name)
-    if location:
-        return (location.longitude, location.latitude)
-    else:
-        return None
+# Submit button
+if st.button("Get Route") and start and end:
+    try:
+        # Geocode input locations
+        geocode_start = client.pelias_search(text=start)["features"][0]["geometry"]["coordinates"]
+        geocode_end = client.pelias_search(text=end)["features"][0]["geometry"]["coordinates"]
 
-# Input from user
-start_location = st.text_input("Enter Start Location", "Bhavani Bus Stand")
-end_location = st.text_input("Enter Destination", "Kaveri Bridge")
+        coords = (geocode_start, geocode_end)
 
-if st.button("Get Route"):
-    start_coords = geocode_location(start_location)
-    end_coords = geocode_location(end_location)
+        # Request route with alternate routes enabled
+        route = client.directions(
+            coordinates=coords,
+            profile='driving-car',
+            format='geojson',
+            optimize_waypoints=True,
+            instructions=True,
+            alternative_routes={'share_factor': 0.6, 'target_count': 3}
+        )
 
-    if not start_coords or not end_coords:
-        st.error("Could not geocode one or both locations.")
-    else:
-        try:
-            route = client.directions(
-                coordinates=[start_coords, end_coords],
-                profile='driving-car',
-                format='geojson'
-            )
+        # Display map with route
+        m = folium.Map(location=[(geocode_start[1] + geocode_end[1]) / 2,
+                                 (geocode_start[0] + geocode_end[0]) / 2], zoom_start=7)
 
-            # Create the map
-            m = folium.Map(location=[start_coords[1], start_coords[0]], zoom_start=13)
-            folium.GeoJson(route, name="route").add_to(m)
-            folium.Marker(
-                location=[start_coords[1], start_coords[0]],
-                popup="Start: " + start_location,
-                icon=folium.Icon(color='green')
-            ).add_to(m)
-            folium.Marker(
-                location=[end_coords[1], end_coords[0]],
-                popup="End: " + end_location,
-                icon=folium.Icon(color='red')
-            ).add_to(m)
+        folium.Marker(location=[geocode_start[1], geocode_start[0]], tooltip="Start").add_to(m)
+        folium.Marker(location=[geocode_end[1], geocode_end[0]], tooltip="End").add_to(m)
 
-            st_folium(m, width=700, height=500)
+        folium.GeoJson(route, name="Route").add_to(m)
 
-            # Display instructions
-            instructions = route['features'][0]['properties']['segments'][0]['steps']
-            st.subheader("📝 Route Instructions:")
-            for step in instructions:
-                st.markdown(f"- {step['instruction']}")
+        st_folium(m, width=700, height=500)
 
-        except Exception as e:
-            st.error(f"Something went wrong: {e}")
+        # Show route instructions, distance & time
+        st.subheader("🧾 Directions")
+        steps = route['features'][0]['properties']['segments'][0]['steps']
+        total_distance = route['features'][0]['properties']['segments'][0]['distance'] / 1000  # in km
+        total_duration = route['features'][0]['properties']['segments'][0]['duration'] / 60  # in min
+
+        st.markdown(f"**Total Distance:** {total_distance:.2f} km")
+        st.markdown(f"**Estimated Time:** {total_duration:.2f} minutes")
+
+        for i, step in enumerate(steps):
+            st.markdown(f"{i+1}. {step['instruction']}")
+
+    except Exception as e:
+        st.error(f"Something went wrong: {e}")
+
+# Footer
+st.markdown("---")
+st.caption("🚀 Built with ❤️ by Swetha and Margaux")
