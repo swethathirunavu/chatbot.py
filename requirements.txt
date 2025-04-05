@@ -1,6 +1,7 @@
 streamlit
 openrouteservice
 streamlit-folium
-SpeechRecognition
 gTTS
+folium
+
 
