@@ -1,9 +1,10 @@
 streamlit
 openrouteservice
 streamlit-folium
-gTTS
-folium
-geopy
+pyttsx3
+SpeechRecognition
+pyaudio
+
 
 
 
