@@ -28,8 +28,11 @@ geolocation_script = """
         navigator.geolocation.getCurrentPosition(function(position) {
             const latitude = position.coords.latitude;
             const longitude = position.coords.longitude;
-            const coords = {lat: latitude, lon: longitude};
-            window.parent.postMessage({coords: coords}, "*");
+            // Sending coordinates to Streamlit via postMessage
+            window.parent.postMessage({coords: {lat: latitude, lon: longitude}}, "*");
+        }, function(error) {
+            // Handle location error
+            alert("Unable to retrieve your location. Please ensure location services are enabled.");
         });
     } else {
         alert("Geolocation is not supported by this browser.");
@@ -37,19 +40,19 @@ geolocation_script = """
 </script>
 """
 
-# Display the JavaScript
+# Display the JavaScript in Streamlit
 components.html(geolocation_script, height=0)
+
+# Get user location from the message passed by the JavaScript code
+def get_user_location():
+    if "coords" in st.session_state:
+        return st.session_state["coords"]
+    return None, None
 
 def geocode_place(place_name):
     geolocator = Nominatim(user_agent="get-your-path-app")
     location = geolocator.geocode(place_name)
     return (location.latitude, location.longitude) if location else None
-
-# Check if user location is received from JavaScript
-def get_user_location():
-    if "coords" in st.session_state:
-        return st.session_state["coords"]
-    return None, None
 
 if st.button("Find Route"):
     # Check if user location is available
