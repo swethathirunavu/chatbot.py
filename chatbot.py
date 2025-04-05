@@ -47,9 +47,8 @@ if st.button("Find Route"):
                 profile = 'driving-car'
             elif route_preference == "Shortest":
                 profile = 'driving-car'
-                # Here you could tweak the API call further for shortest, like optimizing waypoints or route parameters
             else:
-                profile = 'driving-car'  # You can adjust this to any profile you prefer
+                profile = 'driving-car'  # Default to driving-car
 
             # Fetch the route
             route = client.directions(
@@ -83,19 +82,20 @@ if st.session_state.route_info:
     for i, step in enumerate(steps):
         st.markdown(f"{i+1}. {step['instruction']}")
 
-    # Displaying route alternatives on map
+    # Creating the map
     m = folium.Map(location=start_coords, zoom_start=13)
+
+    # Adding markers for start and end locations
     folium.Marker(start_coords, tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
     folium.Marker(end_coords, tooltip="End", icon=folium.Icon(color='red')).add_to(m)
-    
-    # Add the route line
+
+    # Adding the main route line
     folium.PolyLine(
         locations=[(c[1], c[0]) for c in route['features'][0]['geometry']['coordinates']],
         color='blue'
     ).add_to(m)
 
-    # Add additional route alternatives (you can fetch more routes and display them similarly)
-    # For example, you can add a second route here for demonstration
+    # Add alternative routes if applicable
     if route_preference != "Shortest":
         alt_route = client.directions(
             coordinates=[start_coords[::-1], end_coords[::-1]],
@@ -103,8 +103,8 @@ if st.session_state.route_info:
             alternatives=True,  # Get alternatives
             format='geojson'
         )
-        
-        # Add alternative routes
+
+        # Add alternative routes to the map
         for alt in alt_route['features']:
             folium.PolyLine(
                 locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],
@@ -113,7 +113,9 @@ if st.session_state.route_info:
                 opacity=0.7
             ).add_to(m)
 
+    # Rendering the map in Streamlit using st_folium
     st_folium(m, width=700, height=500)
+
 
 
 
