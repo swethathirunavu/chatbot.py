@@ -100,7 +100,25 @@ if st.session_state.route_info:
 
         # Add the main route line
         folium.PolyLine(
-            locations=[(c[1], c[0]) for c in
+            locations=[(c[1], c[0]) for c in route['features'][0]['geometry']['coordinates']],
+            color='blue'
+        ).add_to(m)
+
+        # Add alternative routes (5 alternatives, displayed in orange)
+        for alt in alt_route['features']:
+            folium.PolyLine(
+                locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],  # Fix the bracket issue here
+                color='orange',
+                weight=3,
+                opacity=0.7
+            ).add_to(m)
+
+        # Show map in Streamlit app
+        st_folium(m, width=700, height=500)
+
+    else:
+        st.error("❌ Could not load valid coordinates. Please check your input.")
+
 
 
 
