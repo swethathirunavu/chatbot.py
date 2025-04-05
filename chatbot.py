@@ -3,6 +3,7 @@ import openrouteservice
 from geopy.geocoders import Nominatim
 from streamlit_folium import st_folium
 import folium
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
 st.title("🗺️ Get Your Path")
@@ -20,13 +21,51 @@ if "route_info" not in st.session_state:
 start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
 
+# JavaScript for getting the user's location
+geolocation_script = """
+<script>
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            const coords = {lat: latitude, lon: longitude};
+            window.parent.postMessage({coords: coords}, "*");
+        });
+    } else {
+        alert("Geolocation is not supported by this browser.");
+    }
+</script>
+"""
+
+# Display the JavaScript
+components.html(geolocation_script)
+
 def geocode_place(place_name):
     geolocator = Nominatim(user_agent="get-your-path-app")
     location = geolocator.geocode(place_name)
     return (location.latitude, location.longitude) if location else None
 
+# Placeholder for user coordinates
+coords_placeholder = st.empty()
+
+# Function to get user location from JavaScript
+def get_user_location():
+    message = st.experimental_get_query_params()
+    coords = message.get("coords", None)
+    if coords:
+        return coords[0]['lat'], coords[0]['lon']
+    return None, None
+
 if st.button("Find Route"):
-    start_coords = geocode_place(start_place)
+    # First check if user is using their location, else fallback to the text input
+    user_lat, user_lon = get_user_location()
+    
+    if user_lat and user_lon:
+        start_coords = (user_lat, user_lon)  # Use user location
+        st.write(f"Your current location: Latitude = {user_lat}, Longitude = {user_lon}")
+    else:
+        start_coords = geocode_place(start_place)
+    
     end_coords = geocode_place(end_place)
 
     if not start_coords or not end_coords:
@@ -74,3 +113,4 @@ if st.session_state.route_info:
     ).add_to(m)
 
     st_folium(m, width=700, height=500)
+
