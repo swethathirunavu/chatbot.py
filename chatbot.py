@@ -1,61 +1,60 @@
 import streamlit as st
 import openrouteservice
-from openrouteservice import convert
-from geopy.geocoders import Nominatim
 from streamlit_folium import st_folium
 import folium
+from geopy.geocoders import Nominatim
 
-# App Title
-st.set_page_config(page_title="Get Your Path", layout="centered")
+# Title
 st.title("🗺️ Get Your Path")
-st.markdown("Find the best route between two places!")
-
-# Initialize API client
-client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
-geolocator = Nominatim(user_agent="get-your-path")
 
 # Input fields
-start_location = st.text_input("Enter Starting Place", placeholder="e.g. Ramapuram, Chennai")
-end_location = st.text_input("Enter Destination", placeholder="e.g. Marina Beach, Chennai")
+start_place = st.text_input("Enter Starting Place")
+end_place = st.text_input("Enter Destination")
 
-if st.button("Get Route"):
+# Initialize geolocator
+geolocator = Nominatim(user_agent="get_your_path_app")
+
+def get_coordinates(place_name):
     try:
-        # Geocode start and end
-        start = geolocator.geocode(start_location)
-        end = geolocator.geocode(end_location)
+        location = geolocator.geocode(place_name)
+        return (location.latitude, location.longitude)
+    except:
+        return None
 
-        if not start or not end:
-            st.error("❌ Could not find one or both locations. Please check spelling.")
-        else:
-            coords = [(start.longitude, start.latitude), (end.longitude, end.latitude)]
+# When both inputs are given
+if start_place and end_place:
+    start_coords = get_coordinates(start_place)
+    end_coords = get_coordinates(end_place)
 
-            # Get directions
+    if start_coords and end_coords:
+        try:
+            client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
+            coords = (start_coords, end_coords)
+
             route = client.directions(coords)
-            geometry = route["routes"][0]["geometry"]
-            decoded = convert.decode_polyline(geometry)
+            geometry = route['routes'][0]['geometry']
+            decoded = openrouteservice.convert.decode_polyline(geometry)
 
-            distance = route["routes"][0]["summary"]["distance"] / 1000  # in km
-            duration = route["routes"][0]["summary"]["duration"] / 60  # in mins
-
-            st.success(f"🛣️ Distance: {distance:.2f} km | 🕒 Duration: {duration:.2f} mins")
-
-            # Step-by-step directions
-            st.subheader("📍 Step-by-Step Directions")
-            for step in route["routes"][0]["segments"][0]["steps"]:
-                st.markdown(f"- {step['instruction']}")
-
-            # Show map
-            m = folium.Map(location=[start.latitude, start.longitude], zoom_start=13)
-            folium.Marker([start.latitude, start.longitude], tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
-            folium.Marker([end.latitude, end.longitude], tooltip="End", icon=folium.Icon(color='red')).add_to(m)
-
-            folium.PolyLine(
-                locations=[(coord[1], coord[0]) for coord in decoded["coordinates"]],
-                color="blue",
-                weight=5
-            ).add_to(m)
+            # Map
+            m = folium.Map(location=start_coords, zoom_start=13)
+            folium.Marker(start_coords, tooltip="Start").add_to(m)
+            folium.Marker(end_coords, tooltip="End").add_to(m)
+            folium.PolyLine(locations=decoded['coordinates'], color="blue", weight=5).add_to(m)
 
             st_folium(m, width=700, height=500)
 
-    except Exception as e:
-        st.error(f"⚠️ Something went wrong: {e}")
+            # Distance and duration
+            distance_km = route['routes'][0]['summary']['distance'] / 1000
+            duration_min = route['routes'][0]['summary']['duration'] / 60
+            st.success(f"🛣️ Distance: {distance_km:.2f} km")
+            st.info(f"⏱️ Duration: {duration_min:.2f} minutes")
+
+            # Step-by-step directions
+            st.subheader("📍 Directions:")
+            for step in route['routes'][0]['segments'][0]['steps']:
+                st.write(f"➡️ {step['instruction']}")
+
+        except Exception as e:
+            st.error(f"Something went wrong: {e}")
+    else:
+        st.warning("Could not find one or both locations. Please check spelling.")
