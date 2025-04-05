@@ -91,26 +91,16 @@ if st.session_state.route_info:
         st.markdown(f"{i+1}. {step['instruction']}")
 
     # Display the main route on the map
-    m = folium.Map(location=start_coords, zoom_start=13)
-    folium.Marker(start_coords, tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
-    folium.Marker(end_coords, tooltip="End", icon=folium.Icon(color='red')).add_to(m)
-    
-    # Add the main route line
-    folium.PolyLine(
-        locations=[(c[1], c[0]) for c in route['features'][0]['geometry']['coordinates']],
-        color='blue'
-    ).add_to(m)
+    if start_coords and end_coords:
+        m = folium.Map(location=start_coords, zoom_start=13)
 
-    # Add alternative routes (5 alternatives, displayed in orange)
-    for alt in alt_route['features']:
+        # Add markers for start and end points
+        folium.Marker(start_coords, tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
+        folium.Marker(end_coords, tooltip="End", icon=folium.Icon(color='red')).add_to(m)
+
+        # Add the main route line
         folium.PolyLine(
-            locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],
-            color='orange',
-            weight=3,
-            opacity=0.7
-        ).add_to(m)
-
-    st_folium(m, width=700, height=500)
+            locations=[(c[1], c[0]) for c in
 
 
 
