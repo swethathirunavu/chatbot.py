@@ -2,7 +2,7 @@ streamlit
 openrouteservice
 streamlit-folium
 geopy
-streamlit_javascript
+folium
 
 
 
