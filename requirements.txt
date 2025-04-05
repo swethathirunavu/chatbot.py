@@ -3,5 +3,7 @@ openrouteservice
 streamlit-folium
 gTTS
 folium
+geopy
+
 
 
