@@ -1,56 +1,56 @@
+# get_your_path.py
+
 import streamlit as st
-import openrouteservice
 from streamlit_folium import st_folium
-import folium
+import openrouteservice
+from openrouteservice import convert
 from geopy.geocoders import Nominatim
+import folium
 
-st.title("🗺️ Get Your Path")
+# Title
+st.title("🚀 Get Your Path")
+st.markdown("Find the best route between two places with map, directions, distance, and time.")
 
-start_place = st.text_input("Enter Starting Place")
-end_place = st.text_input("Enter Destination")
+# Input fields
+start = st.text_input("Enter Starting Place")
+end = st.text_input("Enter Destination")
 
-geolocator = Nominatim(user_agent="get_your_path_app")
-
-def get_coordinates(place):
+if st.button("Show Route"):
     try:
-        location = geolocator.geocode(place)
-        return (location.latitude, location.longitude)
-    except:
-        return None
+        # Geocoding using geopy
+        geolocator = Nominatim(user_agent="get-your-path")
+        loc1 = geolocator.geocode(start)
+        loc2 = geolocator.geocode(end)
 
-if start_place and end_place:
-    start_coords = get_coordinates(start_place)
-    end_coords = get_coordinates(end_place)
+        if not loc1 or not loc2:
+            st.error("Could not find one or both locations. Please check spelling.")
+        else:
+            coords = ((loc1.longitude, loc1.latitude), (loc2.longitude, loc2.latitude))
 
-    if start_coords and end_coords:
-        try:
+            # OpenRouteService Client
             client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
-            coords = (start_coords, end_coords)
+            res = client.directions(coords)
 
-            route = client.directions(coords, optimize_waypoints=True)  # 🚨 Added optimize_waypoints
+            geometry = res['routes'][0]['geometry']
+            decoded = convert.decode_polyline(geometry)
+            distance = round(res['routes'][0]['summary']['distance'] / 1000, 2)  # in km
+            duration = round(res['routes'][0]['summary']['duration'] / 60, 2)  # in mins
 
-            geometry = route['routes'][0]['geometry']
-            decoded = openrouteservice.convert.decode_polyline(geometry)
+            # Create map
+            m = folium.Map(location=[loc1.latitude, loc1.longitude], zoom_start=13)
+            folium.Marker([loc1.latitude, loc1.longitude], tooltip="Start", popup=start).add_to(m)
+            folium.Marker([loc2.latitude, loc2.longitude], tooltip="End", popup=end).add_to(m)
+            folium.PolyLine(locations=[[coord[1], coord[0]] for coord in decoded['coordinates']], color="blue").add_to(m)
 
-            m = folium.Map(location=start_coords, zoom_start=13)
-            folium.Marker(start_coords, tooltip="Start").add_to(m)
-            folium.Marker(end_coords, tooltip="End").add_to(m)
-            folium.PolyLine(locations=decoded['coordinates'], color="blue", weight=5).add_to(m)
-
+            # Display map and results
             st_folium(m, width=700, height=500)
-
-            distance_km = route['routes'][0]['summary']['distance'] / 1000
-            duration_min = route['routes'][0]['summary']['duration'] / 60
-            st.success(f"🛣️ Distance: {distance_km:.2f} km")
-            st.info(f"⏱️ Duration: {duration_min:.2f} minutes")
-
-            st.subheader("📍 Directions:")
-            for step in route['routes'][0]['segments'][0]['steps']:
+            st.success(f"Distance: {distance} km | Duration: {duration} mins")
+            st.markdown("### Step-by-step Directions:")
+            steps = res['routes'][0]['segments'][0]['steps']
+            for step in steps:
                 st.write(f"➡️ {step['instruction']}")
 
-        except Exception as e:
-            st.error("Could not generate a route. Try nearby city names or major roads.")
-            st.exception(e)
-    else:
-        st.warning("Could not find one or both locations. Please check spelling.")
+    except Exception as e:
+        st.error(f"Something went wrong: {e}")
+
 
