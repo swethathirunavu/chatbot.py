@@ -1,54 +1,64 @@
 import streamlit as st
-import openrouteservice
 from streamlit_folium import st_folium
+import openrouteservice
+from openrouteservice import convert
+from geopy.geocoders import Nominatim
 import folium
 
-st.set_page_config(page_title="Smart Route Finder", layout="centered")
-st.title("🗺️ Smart Route Finder")
+st.set_page_config(page_title="Get Your Path", layout="wide")
 
-# Input fields for coordinates
-with st.sidebar:
-    st.header("Enter Coordinates")
-    origin_lat = st.number_input("Origin Latitude", value=11.4435)
-    origin_lon = st.number_input("Origin Longitude", value=77.6834)
-    dest_lat = st.number_input("Destination Latitude", value=13.0827)
-    dest_lon = st.number_input("Destination Longitude", value=80.2707)
+st.title("🗺️ Get Your Path")
+st.markdown("Find the best route between two places!")
 
-# Set coordinates from input
-origin = (origin_lat, origin_lon)
-destination = (dest_lat, dest_lon)
+# Input locations
+start_loc = st.text_input("Enter Starting Place", placeholder="e.g., Bhavani")
+end_loc = st.text_input("Enter Destination", placeholder="e.g., Chennai")
 
-# Initialize ORS client
-try:
-    client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
-except Exception as e:
-    st.error("Error: Could not load API key. Check Streamlit Secrets.")
-    st.stop()
+# Get coordinates
+geolocator = Nominatim(user_agent="get-your-path")
+def get_coordinates(place):
+    try:
+        return geolocator.geocode(place)
+    except:
+        return None
 
-# Get route
-try:
-    coords = (origin, destination)
-    route = client.directions(coords)
-    geometry = route['routes'][0]['geometry']
-    decoded = openrouteservice.convert.decode_polyline(geometry)
-    distance = round(route['routes'][0]['summary']['distance'] / 1000, 2)
-    duration = round(route['routes'][0]['summary']['duration'] / 60, 2)
+if start_loc and end_loc:
+    start = get_coordinates(start_loc)
+    end = get_coordinates(end_loc)
 
-    st.success(f"📏 Distance: {distance} km | ⏱️ Duration: {duration} mins")
+    if start and end:
+        coords = ((start.longitude, start.latitude), (end.longitude, end.latitude))
 
-    # Directions text
-    steps = route['routes'][0]['segments'][0]['steps']
-    st.subheader("🧭 Directions:")
-    for i, step in enumerate(steps):
-        st.write(f"{i+1}. {step['instruction']}")
+        # Connect to OpenRouteService
+        try:
+            client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
+            route = client.directions(coords)
 
-    # Map view
-    m = folium.Map(location=origin, zoom_start=7)
-    folium.Marker(location=origin, tooltip="Start").add_to(m)
-    folium.Marker(location=destination, tooltip="End").add_to(m)
-    folium.PolyLine(locations=[(point[1], point[0]) for point in decoded['coordinates']], color="blue").add_to(m)
-    st_folium(m, width=700, height=500)
+            geometry = route['routes'][0]['geometry']
+            decoded = convert.decode_polyline(geometry)
+            distance_km = route['routes'][0]['summary']['distance'] / 1000
+            duration_min = route['routes'][0]['summary']['duration'] / 60
 
-except Exception as e:
-    st.error(f"Something went wrong: {e}")
+            # Show route map
+            m = folium.Map(location=[(start.latitude + end.latitude)/2, (start.longitude + end.longitude)/2], zoom_start=7)
+            folium.Marker([start.latitude, start.longitude], tooltip="Start", popup=start_loc).add_to(m)
+            folium.Marker([end.latitude, end.longitude], tooltip="End", popup=end_loc).add_to(m)
+            folium.PolyLine(locations=[(point[1], point[0]) for point in decoded['coordinates']], color='blue').add_to(m)
 
+            st_folium(m, width=700, height=500)
+
+            # Show distance and duration
+            st.success(f"📏 Distance: {distance_km:.2f} km")
+            st.success(f"⏱️ Duration: {duration_min:.2f} minutes")
+
+            # Step-by-step instructions
+            st.subheader("🧭 Directions:")
+            steps = route['routes'][0]['segments'][0]['steps']
+            for i, step in enumerate(steps, start=1):
+                st.markdown(f"**{i}.** {step['instruction']}")
+
+        except Exception as e:
+            st.error(f"Something went wrong: {e}")
+
+    else:
+        st.warning("Could not find one or both locations. Please check spelling.")
