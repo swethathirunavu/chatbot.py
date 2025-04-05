@@ -114,7 +114,11 @@ if st.session_state.route_info:
             ).add_to(m)
 
     # Rendering the map in Streamlit using st_folium
-    st_folium(m, width=700, height=500)
+    map_output = st_folium(m, width=700, height=500)
+
+    # Debugging the output
+    st.write(map_output)
+
 
 
 
