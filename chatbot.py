@@ -1,58 +1,71 @@
 import streamlit as st
-from streamlit_folium import st_folium
 import openrouteservice
-from folium import Map, Marker, PolyLine
+from streamlit_folium import st_folium
+import folium
+import pyttsx3
+import speech_recognition as sr
 
-# Set page config
-st.set_page_config(page_title="Map Chatbot", layout="wide")
-st.title("🗺️ Map Route Chatbot")
+st.set_page_config(page_title="Map Route Chatbot", layout="centered")
+st.title("🗺️ Map Route Chatbot with Voice")
 
-# Initialize OpenRouteService client
-try:
-    client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
-except Exception as e:
-    st.error("❌ Could not load OpenRouteService API Key. Please set it in Streamlit secrets.")
-    st.stop()
+# Initialize ORS client with secret key
+client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
 
-# Input fields
-start_location = st.text_input("Enter Starting Location:", "Bhavani Bus Stand")
-end_location = st.text_input("Enter Destination:", "Kaveri Bridge")
+# Function to convert text to speech
+def speak(text):
+    engine = pyttsx3.init()
+    engine.say(text)
+    engine.runAndWait()
 
-# Button to get directions
+# Function to listen from mic (optional for future use)
+def listen():
+    r = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("Listening...")
+        audio = r.listen(source)
+    try:
+        query = r.recognize_google(audio)
+        return query
+    except sr.UnknownValueError:
+        return "Sorry, could not understand."
+
+# Get user input
+start = st.text_input("Enter Starting Location", "Bhavani Bus Stand")
+end = st.text_input("Enter Destination", "Kaveri Bridge")
+
 if st.button("Get Route"):
     try:
-        # Geocoding locations to coordinates
-        coords_start = client.pelias_search(text=start_location)['features'][0]['geometry']['coordinates']
-        coords_end = client.pelias_search(text=end_location)['features'][0]['geometry']['coordinates']
+        # Geocode start and end locations
+        coords = [
+            client.pelias_search(text=start)['features'][0]['geometry']['coordinates'],
+            client.pelias_search(text=end)['features'][0]['geometry']['coordinates']
+        ]
 
-        # Check distance manually
-        import geopy.distance
-        dist_km = geopy.distance.geodesic(coords_start[::-1], coords_end[::-1]).km
+        # Get route
+        route = client.directions(coords, profile='driving-car', format='geojson')
 
-        if dist_km > 6000:
-            st.error("❌ Route too long! Please choose locations within 6000 km range.")
-            st.stop()
+        # Create map centered at the start location
+        m = folium.Map(location=coords[0][::-1], zoom_start=14)
+        folium.Marker(location=coords[0][::-1], tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
+        folium.Marker(location=coords[1][::-1], tooltip="End", icon=folium.Icon(color='red')).add_to(m)
+        folium.GeoJson(route, name="Route").add_to(m)
 
-        # Get directions
-        route = client.directions(
-            coordinates=[coords_start, coords_end],
-            profile='driving-car',
-            format='geojson'
-        )
-
-        # Show map with route
-        m = Map(location=coords_start[::-1], zoom_start=13)
-        Marker(coords_start[::-1], tooltip="Start").add_to(m)
-        Marker(coords_end[::-1], tooltip="End").add_to(m)
-        PolyLine(locations=[(coord[1], coord[0]) for coord in route['features'][0]['geometry']['coordinates']],
-                 color="blue", weight=5).add_to(m)
+        # Display map
         st_folium(m, width=700, height=500)
 
-        # Show step-by-step directions
-        steps = route['features'][0]['properties']['segments'][0]['steps']
-        st.subheader("📍 Directions:")
-        for i, step in enumerate(steps):
-            st.markdown(f"{i+1}. {step['instruction']}")
+        # Get turn-by-turn directions
+        directions = client.directions(coords, profile='driving-car')
+        steps = directions['routes'][0]['segments'][0]['steps']
+
+        route_text = ""
+        for step in steps:
+            route_text += f"{step['instruction']} ({step['distance']:.0f} meters)\n"
+
+        st.subheader("Route Instructions:")
+        st.text(route_text)
+
+        # Speak the instructions
+        speak(route_text)
 
     except Exception as e:
         st.error(f"Something went wrong: {e}")
