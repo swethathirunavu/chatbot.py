@@ -1,8 +1,9 @@
 streamlit
 openrouteservice
-streamlit-folium
 geopy
+streamlit-folium
 folium
+
 
 
 
