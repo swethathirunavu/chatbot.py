@@ -54,9 +54,6 @@ if st.button("Find Route"):
     start = geocode(start_place)
     end = geocode(end_place)
 
-    st.write("Start coordinates:", start)
-    st.write("End coordinates:", end)
-
     if not start or not end:
         st.error("❌ Could not find one or both locations. Please check spelling.")
     else:
@@ -142,10 +139,3 @@ if user_query:
 
         except Exception as e:
             st.error(f"Error fetching assistant reply: {e}")
-
-
-
-
-
-
-
