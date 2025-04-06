@@ -4,10 +4,13 @@ from geopy.geocoders import Nominatim
 from streamlit_folium import st_folium
 import folium
 import requests
-import streamlit.components.v1 as components
+import openai
+from PIL import Image
+from serpapi import GoogleSearch
+import os
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
-st.title("🗌️ Get Your Path - AI Travel Assistant")
+st.title(" Get Your Path - AI Travel Assistant")
 
 st.markdown("""
 Speak or type your starting and destination places. This app will:
@@ -16,7 +19,6 @@ Speak or type your starting and destination places. This app will:
 - Provide step-by-step directions
 - Offer route alternatives (Fastest/Recommended)
 - Answer your travel queries like a smart assistant 🧠
-- Detect traffic along the route 🚦
 """)
 
 if "route_info" not in st.session_state:
@@ -68,13 +70,12 @@ if st.button("Find Route"):
                 "instructions": True,
                 "format": "geojson",
                 "alternative_routes": {"share_factor": 0.5, "target_count": 2},
-                "options": {"traffic": True}
             }
 
             if route_preference == "Shortest":
-                data["options"].update({"weighting": "shortest"})
+                data["options"] = {"weighting": "shortest"}
             elif route_preference == "Fastest":
-                data["options"].update({"weighting": "fastest"})
+                data["options"] = {"weighting": "fastest"}
 
             response = requests.post("https://api.openrouteservice.org/v2/directions/driving-car",
                                      json=data, headers=headers)
@@ -127,9 +128,39 @@ if st.session_state.route_info:
         st_folium(m, width=700, height=500)
 
         st.subheader("🤖 Smart Travel Assistant")
-        user_query = st.text_input("Ask something (e.g., 'suggest nearby attractions', 'traffic condition on this route')")
+        user_query = st.text_input("Ask a travel-related question (e.g., 'suggest nearby attractions')")
         if user_query:
-            st.info("🧠 This feature will be powered by a travel-specific LLM or chatbot soon!")
+            try:
+                openai.api_key = st.secrets["OPENAI_API_KEY"]
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "You are a travel assistant that provides information about routes, destinations, tourist attractions, and travel suggestions."},
+                        {"role": "user", "content": user_query}
+                    ]
+                )
+                assistant_reply = response["choices"][0]["message"]["content"]
+                st.markdown(f"💬 **Assistant:** {assistant_reply}")
+
+                st.subheader("🖼️ Relevant Images")
+                search_query = user_query + " travel image"
+                search = GoogleSearch({
+                    "q": search_query,
+                    "tbm": "isch",
+                    "api_key": st.secrets["SERP_API_KEY"]
+                })
+                results = search.get_dict()
+                images = results.get("images_results", [])
+                if images:
+                    cols = st.columns(3)
+                    for idx, img in enumerate(images[:3]):
+                        with cols[idx]:
+                            st.image(img["thumbnail"], caption=img.get("title", ""), use_column_width=True)
+                else:
+                    st.info("No images found.")
+
+            except Exception as e:
+                st.error(f"Error fetching LLM or images: {e}")
 
     except Exception as e:
         st.error(f"Error displaying route: {e}")
