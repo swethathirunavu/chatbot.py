@@ -1,9 +1,12 @@
 streamlit
 openrouteservice
 geopy
-folium
 streamlit-folium
+folium
 requests
+openai
+Pillow
+serpapi
 
 
 
