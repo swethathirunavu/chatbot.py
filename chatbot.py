@@ -5,8 +5,6 @@ from streamlit_folium import st_folium
 import folium
 import requests
 import cohere
-from PIL import Image
-from serpapi import GoogleSearch
 import os
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
@@ -19,7 +17,6 @@ Type your starting and destination places. This app will:
 - Provide step-by-step directions
 - Offer route alternatives (Fastest/Recommended/Shortest)
 - Answer your travel queries like a smart assistant 🧠
-- Show relevant images for your travel queries
 """)
 
 if "route_info" not in st.session_state:
@@ -139,26 +136,8 @@ if st.session_state.route_info:
                 assistant_reply = response.text
                 st.markdown(f"💬 **Assistant:** {assistant_reply}")
 
-                st.subheader("🖼️ Relevant Images")
-                search_query = user_query + " travel image"
-                search = GoogleSearch({
-                    "q": search_query,
-                    "tbm": "isch",
-                    "api_key": st.secrets["SERP_API_KEY"]
-                })
-                results = search.get_dict()
-                images = results.get("images_results", [])
-                if images:
-                    cols = st.columns(3)
-                    for idx, img in enumerate(images[:3]):
-                        with cols[idx]:
-                            st.image(img["thumbnail"], caption=img.get("title", ""), use_column_width=True)
-                else:
-                    st.info("No images found.")
-
             except Exception as e:
-                st.error(f"Error fetching LLM or images: {e}")
+                st.error(f"Error fetching assistant reply: {e}")
 
     except Exception as e:
         st.error(f"Error displaying route: {e}")
-
