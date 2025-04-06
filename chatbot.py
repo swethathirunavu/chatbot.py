@@ -139,3 +139,4 @@ if user_query:
 
     except Exception as e:
         st.error(f"Error fetching assistant reply: {e}")
+
