@@ -1,10 +1,11 @@
 streamlit
 openrouteservice
-geopy
 streamlit-folium
 folium
 requests
 cohere
+geopy
+
 
 
 
