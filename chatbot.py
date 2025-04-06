@@ -109,6 +109,8 @@ if st.session_state.route_info:
 
     except Exception as e:
         st.error(f"Error displaying route: {e}")
+st.button("Go to Smart Assistant →")
 if st.button("Go to Smart Assistant →"):
     st.switch_page("pages/smartassis.py")
+
 
