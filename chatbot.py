@@ -3,16 +3,20 @@ import openrouteservice
 from geopy.geocoders import Nominatim
 from streamlit_folium import st_folium
 import folium
+import requests
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
-st.title("🗺️ Get Your Path")
+st.title("🗺️ Get Your Path - AI Travel Assistant")
 
 st.markdown("""
-Enter starting and destination places by name. This app will:
+Speak or type your starting and destination places. This app will:
+- Detect your live location (optional)
 - Show the best route on a map
 - Display distance and duration
 - Provide step-by-step directions
-- Allow route alternatives (shortest, fastest, recommended)
+- Offer route alternatives (Fastest/Recommended)
+- Answer your travel queries like a smart assistant 🧠
 """)
 
 if "route_info" not in st.session_state:
@@ -24,15 +28,49 @@ if "client" not in st.session_state:
     except Exception as e:
         st.error(f"OpenRouteService API key issue: {e}")
 
+# Inject JavaScript for voice input
+components.html("""
+<script>
+  function recordVoice(id) {
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'en-US';
+    recognition.start();
+    recognition.onresult = function(event) {
+      const transcript = event.results[0][0].transcript;
+      const inputBox = window.parent.document.querySelector(`input[data-testid="stTextInput"]`);
+      inputBox.value = transcript;
+      inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+</script>
+<button onclick="recordVoice('start')">🎤 Speak Start</button>
+<button onclick="recordVoice('end')">🎤 Speak Destination</button>
+""", height=100)
+
+# Text input
 start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
 
+# Route preference
 route_preference = st.selectbox(
     "Select Route Preference",
-    ("Fastest", "Shortest", "Recommended")
+    ("Fastest", "Recommended", "Shortest")
 )
 
+# Live location (using browser JS via Streamlit HTML component)
+st.markdown("""
+<button onclick="navigator.geolocation.getCurrentPosition(pos => {
+  const coords = `${pos.coords.latitude},${pos.coords.longitude}`;
+  const input = window.parent.document.querySelector('input[placeholder*="Starting"]');
+  input.value = coords;
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+})">📍 Use My Current Location</button>
+""", unsafe_allow_html=True)
+
 def geocode_place(place_name):
+    if "," in place_name:
+        lat, lon = map(float, place_name.split(","))
+        return (lat, lon)
     geolocator = Nominatim(user_agent="get-your-path-app")
     location = geolocator.geocode(place_name)
     return (location.latitude, location.longitude) if location else None
@@ -46,12 +84,19 @@ if st.button("Find Route"):
     else:
         try:
             profile = 'driving-car'
-
-            route = st.session_state.client.directions(
-                coordinates=[start_coords[::-1], end_coords[::-1]],
-                profile=profile,
-                format='geojson'
-            )
+            headers = {
+                'Authorization': st.secrets["ORS_API_KEY"],
+                'Content-Type': 'application/json'
+            }
+            data = {
+                "coordinates": [list(start_coords[::-1]), list(end_coords[::-1])],
+                "instructions": True,
+                "format": "geojson",
+                "alternative_routes": {"share_factor": 0.5, "target_count": 2}
+            }
+            response = requests.post("https://api.openrouteservice.org/v2/directions/driving-car",
+                                     json=data, headers=headers)
+            route = response.json()
 
             st.session_state.route_info = {
                 "route": route,
@@ -76,7 +121,12 @@ if st.session_state.route_info:
         st.subheader("📍 Step-by-step Directions:")
         steps = route['features'][0]['properties']['segments'][0]['steps']
         for i, step in enumerate(steps):
-            st.markdown(f"{i+1}. {step['instruction']}")
+            instruction = step['instruction']
+            if "left" in instruction.lower(): icon = "⬅️"
+            elif "right" in instruction.lower(): icon = "➡️"
+            elif "roundabout" in instruction.lower(): icon = "🔄"
+            else: icon = "🧭"
+            st.markdown(f"{i+1}. {icon} {instruction}")
 
         m = folium.Map(location=start_coords, zoom_start=13)
         folium.Marker(start_coords, tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
@@ -86,26 +136,18 @@ if st.session_state.route_info:
             color='blue'
         ).add_to(m)
 
-        # Optional alternative routes
-        if route_preference != "Shortest":
-            try:
-                alt_route = st.session_state.client.directions(
-                    coordinates=[start_coords[::-1], end_coords[::-1]],
-                    profile='driving-car',
-                    format='geojson'
-                )
-
-                for alt in alt_route['features'][1:]:
-                    folium.PolyLine(
-                        locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],
-                        color='orange',
-                        weight=3,
-                        opacity=0.7
-                    ).add_to(m)
-            except Exception as e:
-                st.warning(f"Could not load alternate routes: {e}")
+        for alt in route['features'][1:]:
+            folium.PolyLine(
+                locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],
+                color='orange', weight=3, opacity=0.7
+            ).add_to(m)
 
         st_folium(m, width=700, height=500)
+
+        st.info("💬 Want a scenic route? Fewer tolls? Public transport option? Ask below!")
+        user_query = st.text_input("Ask the assistant (e.g., 'suggest eco route', 'any traffic alerts?')")
+        if user_query:
+            st.write("🤖 I'm still learning! But in future, I'll help you with smart suggestions.")
 
     except Exception as e:
         st.error(f"Error displaying route: {e}")
