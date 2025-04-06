@@ -7,7 +7,7 @@ import cohere
 import time
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
-st.title(" Get Your Path - AI Travel Assistant")
+st.title("🚗 Get Your Path - AI Travel Assistant")
 
 st.markdown("""
 Type your starting and destination places. This app will:
@@ -38,16 +38,21 @@ route_preference = st.selectbox(
     ("Fastest", "Recommended", "Shortest")
 )
 
+# Fixed geocoding function
 def geocode(place):
     try:
-        response = requests.get("https://api.openrouteservice.org/geocode/search", params={
+        res = requests.get("https://api.openrouteservice.org/geocode/search", params={
             "api_key": st.secrets["ORS_API_KEY"],
-            "text": place
+            "text": place,
+            "size": 1,
+            "boundary.country": "IN"
         })
-        data = response.json()
+        res.raise_for_status()
+        data = res.json()
         coords = data['features'][0]['geometry']['coordinates']
-        return (coords[1], coords[0])  # lat, lon
-    except:
+        return (coords[1], coords[0])  # (lat, lon)
+    except Exception as e:
+        st.warning(f"Could not locate '{place}'. Try being more specific.")
         return None
 
 if st.button("Find Route"):
@@ -93,6 +98,7 @@ if st.button("Find Route"):
             except Exception as e:
                 st.error(f"Something went wrong while fetching route: {e}")
 
+# Display route info
 if st.session_state.route_info:
     route = st.session_state.route_info["route"]
     start = st.session_state.route_info["start_coords"]
@@ -110,10 +116,11 @@ if st.session_state.route_info:
             instruction = step['instruction']
             if "left" in instruction.lower(): icon = "⬅️"
             elif "right" in instruction.lower(): icon = "➡️"
-            elif "roundabout" in instruction.lower(): icon = "🔀"
-            else: icon = "🧽"
+            elif "roundabout" in instruction.lower(): icon = "🔁"
+            else: icon = "🛣️"
             st.markdown(f"{i+1}. {icon} {instruction}")
 
+        # Map
         m = folium.Map(location=start, zoom_start=13)
         folium.Marker(start, tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
         folium.Marker(end, tooltip="End", icon=folium.Icon(color='red')).add_to(m)
@@ -133,6 +140,7 @@ if st.session_state.route_info:
     except Exception as e:
         st.error(f"Error displaying route: {e}")
 
+# AI Assistant
 st.divider()
 st.subheader("🤖 Smart Travel Assistant")
 user_query = st.text_input("Ask a travel-related question (e.g., 'suggest tourist places near Kodaikanal')")
@@ -143,9 +151,9 @@ if user_query:
             response = co.chat(message=user_query, model="command-r", temperature=0.7)
             assistant_reply = response.text
             st.markdown(f"💬 **Assistant:** {assistant_reply}")
-
         except Exception as e:
             st.error(f"Error fetching assistant reply: {e}")
+
 
 
 
