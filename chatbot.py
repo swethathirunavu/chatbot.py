@@ -29,28 +29,33 @@ if "client" not in st.session_state:
 
 col1, col2 = st.columns(2)
 with col1:
-    start_coords = st.text_input("Enter Starting Coordinates (lat, lon)", placeholder="e.g. 11.444, 77.721")
+    start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 with col2:
-    end_coords = st.text_input("Enter Destination Coordinates (lat, lon)", placeholder="e.g. 14.442, 79.986")
+    end_place = st.text_input("Enter Destination Place", placeholder="e.g. Coimbatore Station")
 
 route_preference = st.selectbox(
     "Select Route Preference",
     ("Fastest", "Recommended", "Shortest")
 )
 
-def parse_coords(coord_str):
+def geocode(place):
     try:
-        lat, lon = map(float, coord_str.split(","))
-        return (lat, lon)
+        response = requests.get("https://api.openrouteservice.org/geocode/search", params={
+            "api_key": st.secrets["ORS_API_KEY"],
+            "text": place
+        })
+        data = response.json()
+        coords = data['features'][0]['geometry']['coordinates']
+        return (coords[1], coords[0])  # lat, lon
     except:
         return None
 
 if st.button("Find Route"):
-    start = parse_coords(start_coords)
-    end = parse_coords(end_coords)
+    start = geocode(start_place)
+    end = geocode(end_place)
 
     if not start or not end:
-        st.error("❌ Invalid coordinates. Please enter as lat, lon")
+        st.error("❌ Could not find one or both locations. Please check spelling.")
     else:
         with st.spinner("Fetching best routes for you..."):
             time.sleep(1)
@@ -141,6 +146,7 @@ if user_query:
 
         except Exception as e:
             st.error(f"Error fetching assistant reply: {e}")
+
 
 
 
