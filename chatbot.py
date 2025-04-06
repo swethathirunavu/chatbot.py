@@ -66,7 +66,7 @@ if st.button("Find Route"):
                 }
 
                 data = {
-                    "coordinates": [list(start[::-1]), list(end[::-1])],
+                    "coordinates": [[start[1], start[0]], [end[1], end[0]]],
                     "instructions": True,
                     "format": "geojson",
                     "alternative_routes": {"share_factor": 0.5, "target_count": 2},
