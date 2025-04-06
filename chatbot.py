@@ -28,27 +28,6 @@ if "client" not in st.session_state:
     except Exception as e:
         st.error(f"OpenRouteService API key issue: {e}")
 
-# Inject JavaScript for voice input with proper input selection
-components.html("""
-<script>
-  function speakToInput(inputIndex) {
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-    recognition.lang = 'en-US';
-    recognition.start();
-    recognition.onresult = function(event) {
-      const transcript = event.results[0][0].transcript;
-      const inputs = window.parent.document.querySelectorAll('input[data-testid="stTextInput"]');
-      if (inputs.length > inputIndex) {
-        inputs[inputIndex].value = transcript;
-        inputs[inputIndex].dispatchEvent(new Event('input', { bubbles: true }));
-      }
-    }
-  }
-</script>
-<button onclick="speakToInput(0)">🎤 Speak Start</button>
-<button onclick="speakToInput(1)">🎤 Speak Destination</button>
-""", height=100)
-
 # Text input
 start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
@@ -63,7 +42,7 @@ route_preference = st.selectbox(
 st.markdown("""
 <button onclick="navigator.geolocation.getCurrentPosition(pos => {
   const coords = `${pos.coords.latitude},${pos.coords.longitude}`;
-  const input = window.parent.document.querySelector('input[placeholder*="Starting"]');
+  const input = window.parent.document.querySelector('input[placeholder*=\"Starting\"]');
   input.value = coords;
   input.dispatchEvent(new Event('input', { bubbles: true }));
 })">📍 Use My Current Location</button>
@@ -90,12 +69,19 @@ if st.button("Find Route"):
                 'Authorization': st.secrets["ORS_API_KEY"],
                 'Content-Type': 'application/json'
             }
+
             data = {
                 "coordinates": [list(start_coords[::-1]), list(end_coords[::-1])],
                 "instructions": True,
                 "format": "geojson",
                 "alternative_routes": {"share_factor": 0.5, "target_count": 2}
             }
+
+            if route_preference == "Shortest":
+                data["options"] = {"weighting": "shortest"}
+            elif route_preference == "Fastest":
+                data["options"] = {"weighting": "fastest"}
+
             response = requests.post("https://api.openrouteservice.org/v2/directions/driving-car",
                                      json=data, headers=headers)
             route = response.json()
