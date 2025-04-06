@@ -30,9 +30,9 @@ if "client" not in st.session_state:
 
 col1, col2 = st.columns(2)
 with col1:
-    start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
+    start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani ")
 with col2:
-    end_place = st.text_input("Enter Destination Place", placeholder="e.g. Coimbatore Station")
+    end_place = st.text_input("Enter Destination Place", placeholder="e.g. Coimbatore ")
 
 route_preference = st.selectbox(
     "Select Route Preference",
