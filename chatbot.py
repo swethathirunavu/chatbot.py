@@ -11,12 +11,12 @@ st.title("🗌️ Get Your Path - AI Travel Assistant")
 
 st.markdown("""
 Speak or type your starting and destination places. This app will:
-- Detect your live location (optional)
 - Show the best route on a map
 - Display distance and duration
 - Provide step-by-step directions
 - Offer route alternatives (Fastest/Recommended)
 - Answer your travel queries like a smart assistant 🧠
+- Detect traffic along the route 🚦
 """)
 
 if "route_info" not in st.session_state:
@@ -37,16 +37,6 @@ route_preference = st.selectbox(
     "Select Route Preference",
     ("Fastest", "Recommended", "Shortest")
 )
-
-# Live location (using browser JS via Streamlit HTML component)
-st.markdown("""
-<button onclick="navigator.geolocation.getCurrentPosition(pos => {
-  const coords = `${pos.coords.latitude},${pos.coords.longitude}`;
-  const input = window.parent.document.querySelector('input[placeholder*=\"Starting\"]');
-  input.value = coords;
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-})">📍 Use My Current Location</button>
-""", unsafe_allow_html=True)
 
 def geocode_place(place_name):
     if "," in place_name:
@@ -74,13 +64,14 @@ if st.button("Find Route"):
                 "coordinates": [list(start_coords[::-1]), list(end_coords[::-1])],
                 "instructions": True,
                 "format": "geojson",
-                "alternative_routes": {"share_factor": 0.5, "target_count": 2}
+                "alternative_routes": {"share_factor": 0.5, "target_count": 2},
+                "options": {"traffic": True}  # Requesting traffic data if available
             }
 
             if route_preference == "Shortest":
-                data["options"] = {"weighting": "shortest"}
+                data["options"].update({"weighting": "shortest"})
             elif route_preference == "Fastest":
-                data["options"] = {"weighting": "fastest"}
+                data["options"].update({"weighting": "fastest"})
 
             response = requests.post("https://api.openrouteservice.org/v2/directions/driving-car",
                                      json=data, headers=headers)
@@ -135,7 +126,7 @@ if st.session_state.route_info:
         st.info("💬 Want a scenic route? Fewer tolls? Public transport option? Ask below!")
         user_query = st.text_input("Ask the assistant (e.g., 'suggest eco route', 'any traffic alerts?')")
         if user_query:
-            st.write("🧠 I'm still learning! But in future, I'll help you with smart suggestions.")
+            st.write("🤖 I'm your travel assistant. While LLM brain is loading, feel free to ask anything!")
 
     except Exception as e:
         st.error(f"Error displaying route: {e}")
