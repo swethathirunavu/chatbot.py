@@ -6,7 +6,7 @@ folium
 requests
 cohere
 Pillow
-serpapi==0.3.4
+serpapi==0.1.5
 
 
 
