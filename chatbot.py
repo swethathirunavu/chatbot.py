@@ -92,7 +92,6 @@ if st.session_state.route_info:
                 alt_route = st.session_state.client.directions(
                     coordinates=[start_coords[::-1], end_coords[::-1]],
                     profile='driving-car',
-                    alternatives=True,
                     format='geojson'
                 )
 
