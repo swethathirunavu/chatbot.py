@@ -5,7 +5,6 @@ from streamlit_folium import st_folium
 import folium
 import requests
 import cohere
-import os
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
 st.title(" Get Your Path - AI Travel Assistant")
@@ -28,11 +27,9 @@ if "client" not in st.session_state:
     except Exception as e:
         st.error(f"OpenRouteService API key issue: {e}")
 
-# Text input
 start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
 
-# Route preference
 route_preference = st.selectbox(
     "Select Route Preference",
     ("Fastest", "Recommended", "Shortest")
@@ -57,7 +54,6 @@ if st.button("Find Route"):
         st.error("❌ Could not find one or both locations. Please check spelling.")
     else:
         try:
-            profile = 'driving-car'
             headers = {
                 'Authorization': st.secrets["ORS_API_KEY"],
                 'Content-Type': 'application/json'
@@ -79,11 +75,14 @@ if st.button("Find Route"):
                                      json=data, headers=headers)
             route = response.json()
 
-            st.session_state.route_info = {
-                "route": route,
-                "start_coords": start_coords,
-                "end_coords": end_coords
-            }
+            if "features" not in route or not route["features"]:
+                st.error("No route found. Please try with different locations.")
+            else:
+                st.session_state.route_info = {
+                    "route": route,
+                    "start_coords": start_coords,
+                    "end_coords": end_coords
+                }
 
         except Exception as e:
             st.error(f"Something went wrong while fetching route: {e}")
@@ -106,7 +105,7 @@ if st.session_state.route_info:
             if "left" in instruction.lower(): icon = "⬅️"
             elif "right" in instruction.lower(): icon = "➡️"
             elif "roundabout" in instruction.lower(): icon = "🔄"
-            else: icon = "🧽"
+            else: icon = "🧭"
             st.markdown(f"{i+1}. {icon} {instruction}")
 
         m = folium.Map(location=start_coords, zoom_start=13)
@@ -125,19 +124,18 @@ if st.session_state.route_info:
 
         st_folium(m, width=700, height=500)
 
-        st.subheader("🤖 Smart Travel Assistant")
-        user_query = st.text_input("Ask a travel-related question (e.g., 'suggest nearby attractions')")
-        if user_query:
-            try:
-                co = cohere.Client(st.secrets["COHERE_API_KEY"])
-                response = co.chat(message=user_query,
-                                   model="command-r",
-                                   temperature=0.7)
-                assistant_reply = response.text
-                st.markdown(f"💬 **Assistant:** {assistant_reply}")
-
-            except Exception as e:
-                st.error(f"Error fetching assistant reply: {e}")
-
     except Exception as e:
         st.error(f"Error displaying route: {e}")
+
+st.divider()
+st.subheader("🤖 Smart Travel Assistant")
+user_query = st.text_input("Ask a travel-related question (e.g., 'suggest tourist places near Kodaikanal')")
+if user_query:
+    try:
+        co = cohere.Client(st.secrets["COHERE_API_KEY"])
+        response = co.chat(message=user_query, model="command-r", temperature=0.7)
+        assistant_reply = response.text
+        st.markdown(f"💬 **Assistant:** {assistant_reply}")
+
+    except Exception as e:
+        st.error(f"Error fetching assistant reply: {e}")
