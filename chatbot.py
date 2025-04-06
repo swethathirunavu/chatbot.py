@@ -64,11 +64,17 @@ if st.button("Find Route"):
                     'Content-Type': 'application/json'
                 }
 
+                preference_map = {
+                    "Fastest": "fastest",
+                    "Shortest": "shortest",
+                    "Recommended": "fastest"
+                }
+
                 data = {
                     "coordinates": [[start[1], start[0]], [end[1], end[0]]],
                     "instructions": True,
                     "format": "geojson",
-                    "preference": route_preference.lower()
+                    "preference": preference_map[route_preference]
                 }
 
                 response = requests.post("https://api.openrouteservice.org/v2/directions/driving-car",
