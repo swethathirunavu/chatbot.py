@@ -32,16 +32,6 @@ if "client" not in st.session_state:
 start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
 
-# Add button to use current location (injected JavaScript)
-st.markdown("""
-<button onclick="navigator.geolocation.getCurrentPosition(pos => {
-    const coords = `${pos.coords.latitude},${pos.coords.longitude}`;
-    const input = window.parent.document.querySelector('input[placeholder*="Starting"]');
-    input.value = coords;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-})">📍 Use My Current Location</button>
-""", unsafe_allow_html=True)
-
 # Route preference
 route_preference = st.selectbox(
     "Select Route Preference",
@@ -136,10 +126,10 @@ if st.session_state.route_info:
 
         st_folium(m, width=700, height=500)
 
-        st.info("💬 Want a scenic route? Fewer tolls? Public transport option? Ask below!")
-        user_query = st.text_input("Ask the assistant (e.g., 'suggest eco route', 'any traffic alerts?')")
+        st.subheader("🤖 Smart Travel Assistant")
+        user_query = st.text_input("Ask something (e.g., 'suggest nearby attractions', 'traffic condition on this route')")
         if user_query:
-            st.write("🤖 I'm your travel assistant. While LLM brain is loading, feel free to ask anything!")
+            st.info("🧠 This feature will be powered by a travel-specific LLM or chatbot soon!")
 
     except Exception as e:
         st.error(f"Error displaying route: {e}")
