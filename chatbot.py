@@ -4,7 +4,7 @@ from geopy.geocoders import Nominatim
 from streamlit_folium import st_folium
 import folium
 import requests
-import openai
+import cohere
 from PIL import Image
 from serpapi import GoogleSearch
 import os
@@ -13,12 +13,13 @@ st.set_page_config(page_title="Get Your Path", layout="wide")
 st.title(" Get Your Path - AI Travel Assistant")
 
 st.markdown("""
-Speak or type your starting and destination places. This app will:
+Type your starting and destination places. This app will:
 - Show the best route on a map
 - Display distance and duration
 - Provide step-by-step directions
-- Offer route alternatives (Fastest/Recommended)
+- Offer route alternatives (Fastest/Recommended/Shortest)
 - Answer your travel queries like a smart assistant 🧠
+- Show relevant images for your travel queries
 """)
 
 if "route_info" not in st.session_state:
@@ -131,15 +132,11 @@ if st.session_state.route_info:
         user_query = st.text_input("Ask a travel-related question (e.g., 'suggest nearby attractions')")
         if user_query:
             try:
-                openai.api_key = st.secrets["OPENAI_API_KEY"]
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are a travel assistant that provides information about routes, destinations, tourist attractions, and travel suggestions."},
-                        {"role": "user", "content": user_query}
-                    ]
-                )
-                assistant_reply = response["choices"][0]["message"]["content"]
+                co = cohere.Client(st.secrets["COHERE_API_KEY"])
+                response = co.chat(message=user_query,
+                                   model="command-r",
+                                   temperature=0.7)
+                assistant_reply = response.text
                 st.markdown(f"💬 **Assistant:** {assistant_reply}")
 
                 st.subheader("🖼️ Relevant Images")
@@ -164,3 +161,4 @@ if st.session_state.route_info:
 
     except Exception as e:
         st.error(f"Error displaying route: {e}")
+
