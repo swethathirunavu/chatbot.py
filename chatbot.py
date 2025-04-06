@@ -32,6 +32,16 @@ if "client" not in st.session_state:
 start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
 
+# Add button to use current location (injected JavaScript)
+st.markdown("""
+<button onclick="navigator.geolocation.getCurrentPosition(pos => {
+    const coords = `${pos.coords.latitude},${pos.coords.longitude}`;
+    const input = window.parent.document.querySelector('input[placeholder*="Starting"]');
+    input.value = coords;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+})">📍 Use My Current Location</button>
+""", unsafe_allow_html=True)
+
 # Route preference
 route_preference = st.selectbox(
     "Select Route Preference",
@@ -40,8 +50,11 @@ route_preference = st.selectbox(
 
 def geocode_place(place_name):
     if "," in place_name:
-        lat, lon = map(float, place_name.split(","))
-        return (lat, lon)
+        try:
+            lat, lon = map(float, place_name.split(","))
+            return (lat, lon)
+        except:
+            return None
     geolocator = Nominatim(user_agent="get-your-path-app")
     location = geolocator.geocode(place_name)
     return (location.latitude, location.longitude) if location else None
@@ -65,7 +78,7 @@ if st.button("Find Route"):
                 "instructions": True,
                 "format": "geojson",
                 "alternative_routes": {"share_factor": 0.5, "target_count": 2},
-                "options": {"traffic": True}  # Requesting traffic data if available
+                "options": {"traffic": True}
             }
 
             if route_preference == "Shortest":
