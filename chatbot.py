@@ -7,7 +7,7 @@ import requests
 import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
-st.title("🗺️ Get Your Path - AI Travel Assistant")
+st.title("🗌️ Get Your Path - AI Travel Assistant")
 
 st.markdown("""
 Speak or type your starting and destination places. This app will:
@@ -28,23 +28,25 @@ if "client" not in st.session_state:
     except Exception as e:
         st.error(f"OpenRouteService API key issue: {e}")
 
-# Inject JavaScript for voice input
+# Inject JavaScript for voice input with proper input selection
 components.html("""
 <script>
-  function recordVoice(id) {
+  function speakToInput(inputIndex) {
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'en-US';
     recognition.start();
     recognition.onresult = function(event) {
       const transcript = event.results[0][0].transcript;
-      const inputBox = window.parent.document.querySelector(`input[data-testid="stTextInput"]`);
-      inputBox.value = transcript;
-      inputBox.dispatchEvent(new Event('input', { bubbles: true }));
+      const inputs = window.parent.document.querySelectorAll('input[data-testid="stTextInput"]');
+      if (inputs.length > inputIndex) {
+        inputs[inputIndex].value = transcript;
+        inputs[inputIndex].dispatchEvent(new Event('input', { bubbles: true }));
+      }
     }
   }
 </script>
-<button onclick="recordVoice('start')">🎤 Speak Start</button>
-<button onclick="recordVoice('end')">🎤 Speak Destination</button>
+<button onclick="speakToInput(0)">🎤 Speak Start</button>
+<button onclick="speakToInput(1)">🎤 Speak Destination</button>
 """, height=100)
 
 # Text input
@@ -125,7 +127,7 @@ if st.session_state.route_info:
             if "left" in instruction.lower(): icon = "⬅️"
             elif "right" in instruction.lower(): icon = "➡️"
             elif "roundabout" in instruction.lower(): icon = "🔄"
-            else: icon = "🧭"
+            else: icon = "🧽"
             st.markdown(f"{i+1}. {icon} {instruction}")
 
         m = folium.Map(location=start_coords, zoom_start=13)
@@ -147,7 +149,7 @@ if st.session_state.route_info:
         st.info("💬 Want a scenic route? Fewer tolls? Public transport option? Ask below!")
         user_query = st.text_input("Ask the assistant (e.g., 'suggest eco route', 'any traffic alerts?')")
         if user_query:
-            st.write("🤖 I'm still learning! But in future, I'll help you with smart suggestions.")
+            st.write("🧠 I'm still learning! But in future, I'll help you with smart suggestions.")
 
     except Exception as e:
         st.error(f"Error displaying route: {e}")
