@@ -5,6 +5,7 @@ import folium
 import requests
 import cohere
 import time
+from geopy.geocoders import Nominatim
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
 st.title(" Get Your Path - AI Travel Assistant")
@@ -39,14 +40,12 @@ route_preference = st.selectbox(
 )
 
 def geocode(place):
+    geolocator = Nominatim(user_agent="get-your-path-app")
     try:
-        response = requests.get("https://api.openrouteservice.org/geocode/search", params={
-            "api_key": st.secrets["ORS_API_KEY"],
-            "text": place
-        })
-        data = response.json()
-        coords = data['features'][0]['geometry']['coordinates']
-        return (coords[1], coords[0])  # lat, lon
+        location = geolocator.geocode(place)
+        if location:
+            return (location.latitude, location.longitude)
+        return None
     except:
         return None
 
@@ -110,7 +109,7 @@ if st.session_state.route_info:
             if "left" in instruction.lower(): icon = "⬅️"
             elif "right" in instruction.lower(): icon = "➡️"
             elif "roundabout" in instruction.lower(): icon = "🔀"
-            else: icon = "🧽"
+            else: icon = "🛋"
             st.markdown(f"{i+1}. {icon} {instruction}")
 
         m = folium.Map(location=start, zoom_start=13)
@@ -127,7 +126,7 @@ if st.session_state.route_info:
         st.error(f"Error displaying route: {e}")
 
 st.divider()
-st.subheader("🤖 Smart Travel Assistant")
+st.subheader("🧠 Smart Travel Assistant")
 user_query = st.text_input("Ask a travel-related question (e.g., 'suggest tourist places near Kodaikanal')")
 if user_query:
     with st.spinner("Thinking..."):
