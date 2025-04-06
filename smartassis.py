@@ -22,3 +22,6 @@ if user_query:
             st.markdown(f"💬 **Assistant:** {assistant_reply}")
         except Exception as e:
             st.error(f"Error fetching assistant reply: {e}")
+if st.button("← Back to Route Planner"):
+    st.switch_page("chatbot.py")
+
