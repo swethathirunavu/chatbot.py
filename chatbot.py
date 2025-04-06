@@ -5,7 +5,7 @@ from streamlit_folium import st_folium
 import folium
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
-st.title("🗺️ Get Your Path")
+st.title("🗘️ Get Your Path")
 
 st.markdown("""
 Enter starting and destination places by name. This app will:
@@ -43,12 +43,7 @@ if st.button("Find Route"):
             client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
 
             # Profile selection based on user preference
-            if route_preference == "Fastest":
-                profile = 'driving-car'
-            elif route_preference == "Shortest":
-                profile = 'driving-car'
-            else:
-                profile = 'driving-car'  # Default to driving-car
+            profile = 'driving-car'  # Default to driving-car
 
             # Fetch the route
             route = client.directions(
@@ -60,7 +55,8 @@ if st.button("Find Route"):
             st.session_state.route_info = {
                 "route": route,
                 "start_coords": start_coords,
-                "end_coords": end_coords
+                "end_coords": end_coords,
+                "profile": profile
             }
 
         except Exception as e:
@@ -71,6 +67,7 @@ if st.session_state.route_info:
     route = st.session_state.route_info["route"]
     start_coords = st.session_state.route_info["start_coords"]
     end_coords = st.session_state.route_info["end_coords"]
+    profile = st.session_state.route_info["profile"]
 
     distance = route['features'][0]['properties']['segments'][0]['distance'] / 1000
     duration = route['features'][0]['properties']['segments'][0]['duration'] / 60
@@ -97,31 +94,23 @@ if st.session_state.route_info:
 
     # Add alternative routes if applicable
     if route_preference != "Shortest":
-        alt_route = client.directions(
-            coordinates=[start_coords[::-1], end_coords[::-1]],
-            profile='driving-car',
-            alternatives=True,  # Get alternatives
-            format='geojson'
-        )
+        try:
+            alt_route = client.directions(
+                coordinates=[start_coords[::-1], end_coords[::-1]],
+                profile=profile,
+                alternatives=True,
+                format='geojson'
+            )
+            for alt in alt_route['features'][1:]:
+                folium.PolyLine(
+                    locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],
+                    color='orange',
+                    weight=3,
+                    opacity=0.7
+                ).add_to(m)
+        except Exception as e:
+            st.warning(f"Could not load alternative routes: {e}")
 
-        # Add alternative routes to the map
-        for alt in alt_route['features']:
-            folium.PolyLine(
-                locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],
-                color='orange',
-                weight=3,
-                opacity=0.7
-            ).add_to(m)
-
-    # Rendering the map in Streamlit using st_folium
-    map_output = st_folium(m, width=700, height=500)
-
-    # Debugging the output
-    st.write(map_output)
-
-
-
-
-
-
-
+    # Show the map
+    st_data = st_folium(m, width=700, height=500)
+    st.write("\n")
