@@ -1,8 +1,10 @@
 streamlit
 openrouteservice
 geopy
-streamlit-folium
 folium
+streamlit-folium
+requests
+
 
 
 
