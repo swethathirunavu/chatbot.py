@@ -5,7 +5,7 @@ from streamlit_folium import st_folium
 import folium
 
 st.set_page_config(page_title="Get Your Path", layout="wide")
-st.title("🗘️ Get Your Path")
+st.title("🗺️ Get Your Path")
 
 st.markdown("""
 Enter starting and destination places by name. This app will:
@@ -18,10 +18,15 @@ Enter starting and destination places by name. This app will:
 if "route_info" not in st.session_state:
     st.session_state.route_info = None
 
+if "client" not in st.session_state:
+    try:
+        st.session_state.client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
+    except Exception as e:
+        st.error(f"OpenRouteService API key issue: {e}")
+
 start_place = st.text_input("Enter Starting Place", placeholder="e.g. Bhavani Bus Stand")
 end_place = st.text_input("Enter Destination", placeholder="e.g. Kaveri Bridge, Bhavani")
 
-# Route preference options
 route_preference = st.selectbox(
     "Select Route Preference",
     ("Fastest", "Shortest", "Recommended")
@@ -40,13 +45,9 @@ if st.button("Find Route"):
         st.error("❌ Could not find one or both locations. Please check spelling.")
     else:
         try:
-            client = openrouteservice.Client(key=st.secrets["ORS_API_KEY"])
+            profile = 'driving-car'
 
-            # Profile selection based on user preference
-            profile = 'driving-car'  # Default to driving-car
-
-            # Fetch the route
-            route = client.directions(
+            route = st.session_state.client.directions(
                 coordinates=[start_coords[::-1], end_coords[::-1]],
                 profile=profile,
                 format='geojson'
@@ -55,62 +56,57 @@ if st.button("Find Route"):
             st.session_state.route_info = {
                 "route": route,
                 "start_coords": start_coords,
-                "end_coords": end_coords,
-                "profile": profile
+                "end_coords": end_coords
             }
 
         except Exception as e:
-            st.error(f"Something went wrong: {e}")
+            st.error(f"Something went wrong while fetching route: {e}")
 
-# Display route info if available
 if st.session_state.route_info:
     route = st.session_state.route_info["route"]
     start_coords = st.session_state.route_info["start_coords"]
     end_coords = st.session_state.route_info["end_coords"]
-    profile = st.session_state.route_info["profile"]
 
-    distance = route['features'][0]['properties']['segments'][0]['distance'] / 1000
-    duration = route['features'][0]['properties']['segments'][0]['duration'] / 60
+    try:
+        distance = route['features'][0]['properties']['segments'][0]['distance'] / 1000
+        duration = route['features'][0]['properties']['segments'][0]['duration'] / 60
 
-    st.success(f"**Distance:** {distance:.2f} km | **Estimated Time:** {duration:.1f} mins")
+        st.success(f"**Distance:** {distance:.2f} km | **Estimated Time:** {duration:.1f} mins")
 
-    st.subheader("📍 Step-by-step Directions:")
-    steps = route['features'][0]['properties']['segments'][0]['steps']
-    for i, step in enumerate(steps):
-        st.markdown(f"{i+1}. {step['instruction']}")
+        st.subheader("📍 Step-by-step Directions:")
+        steps = route['features'][0]['properties']['segments'][0]['steps']
+        for i, step in enumerate(steps):
+            st.markdown(f"{i+1}. {step['instruction']}")
 
-    # Creating the map
-    m = folium.Map(location=start_coords, zoom_start=13)
+        m = folium.Map(location=start_coords, zoom_start=13)
+        folium.Marker(start_coords, tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
+        folium.Marker(end_coords, tooltip="End", icon=folium.Icon(color='red')).add_to(m)
+        folium.PolyLine(
+            locations=[(c[1], c[0]) for c in route['features'][0]['geometry']['coordinates']],
+            color='blue'
+        ).add_to(m)
 
-    # Adding markers for start and end locations
-    folium.Marker(start_coords, tooltip="Start", icon=folium.Icon(color='green')).add_to(m)
-    folium.Marker(end_coords, tooltip="End", icon=folium.Icon(color='red')).add_to(m)
+        # Optional alternative routes
+        if route_preference != "Shortest":
+            try:
+                alt_route = st.session_state.client.directions(
+                    coordinates=[start_coords[::-1], end_coords[::-1]],
+                    profile='driving-car',
+                    alternatives=True,
+                    format='geojson'
+                )
 
-    # Adding the main route line
-    folium.PolyLine(
-        locations=[(c[1], c[0]) for c in route['features'][0]['geometry']['coordinates']],
-        color='blue'
-    ).add_to(m)
+                for alt in alt_route['features'][1:]:
+                    folium.PolyLine(
+                        locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],
+                        color='orange',
+                        weight=3,
+                        opacity=0.7
+                    ).add_to(m)
+            except Exception as e:
+                st.warning(f"Could not load alternate routes: {e}")
 
-    # Add alternative routes if applicable
-    if route_preference != "Shortest":
-        try:
-            alt_route = client.directions(
-                coordinates=[start_coords[::-1], end_coords[::-1]],
-                profile=profile,
-                alternatives=True,
-                format='geojson'
-            )
-            for alt in alt_route['features'][1:]:
-                folium.PolyLine(
-                    locations=[(c[1], c[0]) for c in alt['geometry']['coordinates']],
-                    color='orange',
-                    weight=3,
-                    opacity=0.7
-                ).add_to(m)
-        except Exception as e:
-            st.warning(f"Could not load alternative routes: {e}")
+        st_folium(m, width=700, height=500)
 
-    # Show the map
-    st_data = st_folium(m, width=700, height=500)
-    st.write("\n")
+    except Exception as e:
+        st.error(f"Error displaying route: {e}")
