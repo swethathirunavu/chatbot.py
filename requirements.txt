@@ -4,9 +4,10 @@ geopy
 streamlit-folium
 folium
 requests
-openai
+cohere
 Pillow
 serpapi
+
 
 
 
