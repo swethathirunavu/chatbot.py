@@ -1,8 +1,8 @@
-                                                                                      📍 Get Your Path
+## 📍 Get Your Path
 
 Get Your Path is a smart, conversational route-finding application built using Streamlit. It helps users find the best route between two named locations—no coordinates required—while offering a voice-assisted and user-friendly experience similar to a travel companion. The project aims to blend AI, map services, and real-time data into a simple yet powerful tool.
 
-📌 Key Features
+## 📌 Key Features
 
 ✅ Enter Location Names Directly
 ✅ Map Display with Route Visualization
@@ -14,7 +14,7 @@ Get Your Path is a smart, conversational route-finding application built using S
 ✅ Smart Travel Queries
 ✅ Mobile Responsive
 
-🏧 Project Structure
+## 🏧 Project Structure
 Get_Your_Path/
 │
 ├── .streamlit/
@@ -29,7 +29,7 @@ Get_Your_Path/
 └── assets/                     # (Optional) CSS, images, icons, etc
 
 
-🛠️ Tech Stack
+## 🛠️ Tech Stack
 
 Frontend & App Framework: Streamlit
 Backend & Logic: Python
@@ -58,7 +58,7 @@ Map Rendering: Folium + streamlit-folium
 | Cohere           | Smart Assistant Chat API     | [Cohere Docs](https://docs.cohere.com)                                   |
 | Geopy + Nominatim| Geocoding by location name   | [Nominatim](https://nominatim.openstreetmap.org/)                        |
 
-🛣️ Author
+## 🛣️ Author
 
 Swetha B.Tech CSE Student | Full Stack Enthusiast | AI & ML Explorer📬 
 [LinkedIn💡](https://www.linkedin.com/in/swetha-thirunavu/)
