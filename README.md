@@ -5,14 +5,23 @@ Get Your Path is a smart, conversational route-finding application built using S
 ## 📌 Key Features
 
 ✅ Enter Location Names Directly
+
 ✅ Map Display with Route Visualization
+
 ✅ Text-based Route Instructions
+
 ✅ Alternate Routes: Fastest, Shortest, Recommended
+
 ✅ Step-by-step Directions
+
 ✅ Live User Location Detection
+
 ✅ LLM-powered Smart Assistant (Cohere)
+
 ✅ Smart Travel Queries
+
 ✅ Mobile Responsive
+
 
 ## 🏧 Project Structure
 Get_Your_Path/
