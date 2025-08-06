@@ -180,8 +180,12 @@ class TravelApp:
     
     def save_to_history(self, start_place: str, end_place: str, distance: float, duration: float):
         """Save search to history"""
+        # Create unique ID for each search
+        unique_id = datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]  # Include microseconds for uniqueness
+        
         search_entry = {
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M'),
+            'id': unique_id,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             'start': start_place,
             'end': end_place,
             'distance': distance,
@@ -313,8 +317,10 @@ class TravelApp:
             # Search history
             if st.session_state.search_history:
                 st.header("🕐 Recent Searches")
-                for entry in st.session_state.search_history[:5]:
-                    if st.button(f"{entry['start']} → {entry['end']}", key=f"hist_{entry['timestamp']}"):
+                for i, entry in enumerate(st.session_state.search_history[:5]):
+                    # Use unique index-based key to avoid duplicates
+                    button_key = f"hist_{entry.get('id', i)}_{i}"
+                    if st.button(f"{entry['start']} → {entry['end']}", key=button_key):
                         st.session_state.start_place = entry['start']
                         st.session_state.end_place = entry['end']
         
